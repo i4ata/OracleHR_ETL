@@ -4,7 +4,7 @@
 
 -- Directly populate the tables using the CSVs
 
-SET GLOBAL local_infile=ON; -- enable loading the data from files
+SET GLOBAL local_infile=1; -- enable loading the data from files
 
 -- --------- --
 -- EMPLOYEES --

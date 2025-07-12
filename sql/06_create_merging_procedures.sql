@@ -63,7 +63,7 @@ BEGIN
 END $$
 
 -- ---- --
--- JBOS --
+-- JOBS --
 -- ---- --
 CREATE PROCEDURE merge_jobs()
 BEGIN

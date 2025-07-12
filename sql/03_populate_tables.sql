@@ -1,3 +1,5 @@
+\! echo "Running populate_tables.sql. Use the provided CSV files to populate the tables"
+
 SET GLOBAL local_infile=ON;
 
 -- --------- --
@@ -15,6 +17,8 @@ LOAD DATA LOCAL INFILE 'data/employees.csv' INTO TABLE employee_dim
         commission_pct = IF(@commission_pct = '', DEFAULT(commission_pct), @commission_pct),
         department_id = NULLIF(@department_id, '');
 
+\! echo "Employee dim populated successfully"
+
 -- ----------- --
 -- DEPARTMENTS --
 -- ----------- --
@@ -24,12 +28,16 @@ LOAD DATA LOCAL INFILE 'data/departments.csv' INTO TABLE department_dim
     SET 
         manager_id = NULLIF(@manager_id, '');
 
+\! echo "Department dim populated successfully"
+
 -- ---- --
 -- JOBS --
 -- ---- --
 LOAD DATA LOCAL INFILE 'data/jobs.csv' INTO TABLE job_dim
     FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
     (job_id, job_title, min_salary, max_salary);
+
+\! echo "Job dim populated successfully"
 
 -- ----- --
 -- TIMES --
@@ -61,6 +69,8 @@ SELECT
     YEAR(dates),
     QUARTER(dates)
 FROM dates;
+
+\! echo "Time dim populated successfully"
 
 -- --------- --
 -- LOCATIONS --
@@ -106,6 +116,8 @@ DROP TABLE regions_temp;
 DROP TABLE countries_temp;
 DROP TABLE locations_temp;
 
+\! echo "Location dim populated successfully"
+
 -- ---------------------------- --
 -- EMPLOYEES YEARLY SALARY FACT --
 -- ---------------------------- --
@@ -129,3 +141,5 @@ WITH
             ORDER BY surrogate_employee_id, year
     )
 SELECT * FROM salary_data;
+
+\! echo "Employee yearly salary fact populated successfully"

@@ -1,3 +1,5 @@
+\! echo "Running queries.sql. Run 5 queries on the database"
+
 -- ---------------------------- --
 -- Total compensation by region --
 -- ---------------------------- --

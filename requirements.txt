@@ -1,6 +1,6 @@
 pandas
 PyMySQL
 sqlalchemy
-fastapi
+fastapi[standard]
 uvicorn
-python-dotenv
+cryptography

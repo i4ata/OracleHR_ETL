@@ -5,7 +5,7 @@ import pandas as pd
 import os
 
 app = FastAPI()
-engine = create_engine('mysql+pymysql://root:4e7LyYzF@localhost/OLAP')
+engine = create_engine(f'mysql+pymysql://root:{os.getenv("MYSQL_ROOT_PASSWORD")}@{"localhost" if not os.getenv("IN_DOCKER") else "oracle_hr_db"}/OLAP')
 with open(os.path.join('sql', '04_queries.sql')) as f: queries = f.read().split('\n\n')[1:] # Skipping the first line of \! echo
 
 to_eur = {

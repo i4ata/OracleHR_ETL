@@ -1,4 +1,6 @@
-\! echo "Running queries.sql. Run 5 queries on the database"
+\! echo '----------------------------------------------------'
+\! echo 'Running queries.sql. Run 5 queries on the fact table'
+\! echo '----------------------------------------------------'
 
 -- ---------------------------- --
 -- Total compensation by region --
@@ -22,7 +24,7 @@ ORDER BY total_compensation DESC;
 -- ------------------------------- --
 -- Average salary per job category --
 -- ------------------------------- --
-SELECT job_category, AVG(salary) AS average_yearly_salary
+SELECT job_category, AVG(salary) AS average_yearly_salary -- Does not account for regions with different currencies (the API does)
 FROM employee_yearly_salary_fact
 JOIN job_dim USING (surrogate_job_id)
 GROUP BY job_category ORDER BY average_yearly_salary DESC;
@@ -30,7 +32,7 @@ GROUP BY job_category ORDER BY average_yearly_salary DESC;
 -- --------------------------------------------------- --
 -- Employees who changed departments between 2005-2018 --
 -- --------------------------------------------------- --
-SELECT DISTINCT(employee_id), full_name
+SELECT DISTINCT(employee_id), full_name -- Retrieve all employees hired in that range
 FROM employee_yearly_salary_fact
 JOIN employee_dim USING (surrogate_employee_id)
 JOIN department_dim USING (surrogate_department_id)
@@ -49,3 +51,5 @@ WITH ranked_salaries AS (
     JOIN location_dim USING (surrogate_location_id)
 )
 SELECT * FROM ranked_salaries WHERE salary_rank <= 5;
+
+\! echo 'All queries ran successfully'

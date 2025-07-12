@@ -1,5 +1,13 @@
-\! echo 'running create_tables.sql. Creating the dim + fact tables'
+\! echo '---------------------------------------------------------'
+\! echo 'Running create_tables.sql. Creating the dim + fact tables'
+\! echo '---------------------------------------------------------'
 
+-- Non-surrogate keys can't be proper foreign keys because then it would be impossible to implement SCD Type 2
+-- MySQL requires Foreign Keys to refer to unique keys, which contradicts SCD2
+
+-- --------- --
+-- EMPLOYEES --
+-- --------- --
 CREATE TABLE employee_dim (
     surrogate_employee_id CHAR(32),
     employee_id DECIMAL(6,0) NOT NULL,
@@ -14,6 +22,7 @@ CREATE TABLE employee_dim (
     department_id DECIMAL(4,0),
     tenure_band VARCHAR(20),
 
+    -- SCD Type 2 indicator columns
     effective_start_date TIMESTAMP DEFAULT NOW(),
     effective_end_date TIMESTAMP,
     is_current BOOLEAN DEFAULT TRUE,
@@ -26,6 +35,9 @@ CREATE TABLE employee_dim (
 
 \! echo 'Created employee dim successfully'
 
+-- --------- --
+-- EMPLOYEES --
+-- --------- --
 CREATE TABLE department_dim (
     surrogate_department_id CHAR(32),
     department_id DECIMAL(6,0) NOT NULL,
@@ -42,6 +54,9 @@ CREATE TABLE department_dim (
 
 \! echo 'Created department dim successfully'
 
+-- --------- --
+-- EMPLOYEES --
+-- --------- --
 CREATE TABLE job_dim (
     surrogate_job_id CHAR(32),
     job_id VARCHAR(10) NOT NULL,
@@ -60,6 +75,9 @@ CREATE TABLE job_dim (
 
 \! echo 'Created job dim successfully'
 
+-- --------- --
+-- EMPLOYEES --
+-- --------- --
 CREATE TABLE time_dim (
     surrogate_time_id CHAR(32),
     time_id CHAR(8) NOT NULL,
@@ -78,6 +96,9 @@ CREATE TABLE time_dim (
 
 \! echo 'Created time dim successfully'
 
+-- --------- --
+-- EMPLOYEES --
+-- --------- --
 CREATE TABLE location_dim (
     surrogate_location_id CHAR(32),
     location_id DECIMAL(4,0) NOT NULL,
@@ -99,6 +120,9 @@ CREATE TABLE location_dim (
 
 \! echo 'Created location dim successfully'
 
+-- --------- --
+-- EMPLOYEES --
+-- --------- --
 CREATE TABLE employee_yearly_salary_fact (
     surrogate_fact_id CHAR(32),
     surrogate_employee_id CHAR(32),

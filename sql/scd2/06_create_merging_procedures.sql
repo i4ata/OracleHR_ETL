@@ -1,35 +1,53 @@
-\! echo "Running create_merging_procedures.sql. Create the necessary functionality for merging the staging tables while supporting SCD Type 2"
+\! echo 'Running create_merging_procedures.sql. Create the necessary functionality for merging the staging tables while supporting SCD Type 2'
+
+-- Since MERGE() does not exist in MySQL, I wrote the functionality myself
+-- The procedures for all dimensions are analogical (there is a lot of code duplication but there is really no way around it)
+-- Again, there is no procedure for the time dimension since we probably don't want to change the time
+-- BUG: This breaks if an already expired row is attempted to be remerged 
+-- (i.e. if you try to merge a perfect copy of an already existing row that is currently expired)
 
 DELIMITER $$
 
--- BUG: This breaks if an already expired row is attempted to be remerged
+-- --------- --
+-- EMPLOYEES --
+-- --------- --
 CREATE PROCEDURE merge_employees()
 BEGIN
 
-    -- Delete rows that are already in the employee_dim table as it's pointless to merge them. Sucks to calculate their surrogate indicies again
+    -- Delete rows that are already the active ones in the employee_dim table as it's pointless to merge them. 
+    -- Sucks to calculate their surrogate indicies again
     DELETE FROM staging_employees WHERE MD5(CONCAT(
         employee_id, full_name, hire_date, job_id, salary, 
         COALESCE(commission_pct, ''), email, phone_number, COALESCE(manager_id, ''), COALESCE(department_id, '')
     )) IN (SELECT surrogate_employee_id FROM employee_dim WHERE is_current = TRUE);
 
+    -- Store the surrogate id's that are currently expiring 
+    -- They will be used to update the fact table later
     CREATE TABLE old_surrogate_id (surrogate_employee_id CHAR(32))
     SELECT surrogate_employee_id FROM employee_dim WHERE employee_id IN (SELECT employee_id from staging_employees) AND is_current = TRUE;
 
+    -- Expire the merged rows if their id's are already present
     UPDATE employee_dim JOIN staging_employees USING (employee_id)
     SET is_current = FALSE, effective_end_date = NOW() WHERE is_current = TRUE;
     
+    -- Merge the rows into the dim. This triggers a trigger
     INSERT INTO employee_dim (employee_id, full_name, hire_date, job_id, salary, commission_pct, email, phone_number, manager_id, department_id) 
     SELECT * FROM staging_employees;
 
+    -- Update the fact table by replacing the expired surrogate id's with the new ones. This triggers a trigger
     UPDATE employee_yearly_salary_fact AS fact
     JOIN old_surrogate_id USING (surrogate_employee_id)
     JOIN employee_dim AS dim ON dim.employee_id IN (SELECT employee_id FROM staging_employees) AND is_current = TRUE
     SET fact.surrogate_employee_id = dim.surrogate_employee_id;
 
+    -- Delete the stored old id's
     DROP TABLE old_surrogate_id;
 
 END $$
 
+-- ----------- --
+-- DEPARTMENTS --
+-- ----------- --
 CREATE PROCEDURE merge_departments()
 BEGIN
 
@@ -54,7 +72,9 @@ BEGIN
 
 END $$
 
-
+-- ---- --
+-- JBOS --
+-- ---- --
 CREATE PROCEDURE merge_jobs()
 BEGIN
 
@@ -80,6 +100,9 @@ BEGIN
 END $$
 
 
+-- --------- --
+-- LOCATIONS --
+-- --------- --
 CREATE PROCEDURE merge_locations()
 BEGIN
 
@@ -105,3 +128,5 @@ BEGIN
 END $$
 
 DELIMITER ;
+
+\! echo 'All merging procedures created successfully'

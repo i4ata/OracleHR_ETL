@@ -1,4 +1,4 @@
-\! echo "Run all scripts in the ./sql directory in order"
+\! echo "Run all scripts in the ./sql directory in order. Should take a few seconds"
 
 source sql/00_setup.sql
 source sql/01_create_tables.sql

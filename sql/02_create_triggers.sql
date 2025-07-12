@@ -1,7 +1,15 @@
+\! echo '--------------------------------------------------------------------------'
 \! echo 'Running create_triggers.sql. Create triggers for inserting into the tables'
+\! echo '--------------------------------------------------------------------------'
+
+-- The dimension triggers are used to automatically fill in columns that are directly derived from other columns
+-- This is always true for the surrogate id, which is md5 applied to the whole row
 
 DELIMITER $$
 
+-- ---------------- --
+-- INSERT EMPLOYEES --
+-- ---------------- --
 CREATE TRIGGER before_insert_employee BEFORE INSERT ON employee_dim
     FOR EACH ROW
     BEGIN
@@ -20,6 +28,9 @@ CREATE TRIGGER before_insert_employee BEFORE INSERT ON employee_dim
         END;
     END $$
 
+-- ------------------ --
+-- INSERT DEPARTMENTS --
+-- ------------------ --
 CREATE TRIGGER before_insert_department BEFORE INSERT ON department_dim
     FOR EACH ROW
     BEGIN
@@ -28,6 +39,9 @@ CREATE TRIGGER before_insert_department BEFORE INSERT ON department_dim
         ));
     END $$
 
+-- ----------- --
+-- INSERT JOBS --
+-- ----------- --
 CREATE TRIGGER before_insert_job BEFORE INSERT ON job_dim
     FOR EACH ROW
     BEGIN
@@ -42,6 +56,9 @@ CREATE TRIGGER before_insert_job BEFORE INSERT ON job_dim
         END;
     END $$
 
+-- ---------------- --
+-- INSERT LOCATIONS --
+-- ---------------- --
 CREATE TRIGGER before_insert_location BEFORE INSERT ON location_dim
     FOR EACH ROW
     BEGIN
@@ -51,6 +68,9 @@ CREATE TRIGGER before_insert_location BEFORE INSERT ON location_dim
     END $$
 
 
+-- ------------ --
+-- INSERT FACTS --
+-- ------------ --
 CREATE TRIGGER before_insert_fact BEFORE INSERT ON employee_yearly_salary_fact
     FOR EACH ROW
     BEGIN
@@ -63,6 +83,10 @@ CREATE TRIGGER before_insert_fact BEFORE INSERT ON employee_yearly_salary_fact
         SET NEW.total_compensation = NEW.salary + NEW.bonus;
     END $$
 
+-- ------------ --
+-- UPDATE FACTS --
+-- ------------ --
+-- Update the compensation columns when a surrogate_employee_id has been updated. This is applied in the scd2 merging
 CREATE TRIGGER update_compensation BEFORE UPDATE ON employee_yearly_salary_fact
     FOR EACH ROW
     BEGIN
@@ -81,4 +105,4 @@ CREATE TRIGGER update_compensation BEFORE UPDATE ON employee_yearly_salary_fact
 
 DELIMITER ;
 
-\! echo "All triggers created successfully"
+\! echo 'All triggers created successfully'

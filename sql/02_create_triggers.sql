@@ -15,7 +15,8 @@ CREATE TRIGGER before_insert_employee BEFORE INSERT ON employee_dim
     BEGIN
         SET NEW.surrogate_employee_id = MD5(CONCAT(
             NEW.employee_id, NEW.full_name, NEW.hire_date, NEW.job_id, NEW.salary, 
-            COALESCE(NEW.commission_pct, ''), NEW.email, NEW.phone_number, COALESCE(NEW.manager_id, ''), COALESCE(NEW.department_id, '')
+            COALESCE(NEW.commission_pct, ''), NEW.email, NEW.phone_number, COALESCE(NEW.manager_id, ''), COALESCE(NEW.department_id, ''),
+            NEW.effective_start_date
         ));
         SET @tenure_years = TIMESTAMPDIFF(YEAR, NEW.hire_date, CURDATE());
         SET NEW.tenure_band = CASE 
@@ -35,7 +36,7 @@ CREATE TRIGGER before_insert_department BEFORE INSERT ON department_dim
     FOR EACH ROW
     BEGIN
         SET NEW.surrogate_department_id = MD5(CONCAT(
-            NEW.department_id, NEW.department_name, NEW.location_id, COALESCE(NEW.manager_id, '')
+            NEW.department_id, NEW.department_name, NEW.location_id, COALESCE(NEW.manager_id, ''), NEW.effective_start_date
         ));
     END $$
 
@@ -63,7 +64,8 @@ CREATE TRIGGER before_insert_location BEFORE INSERT ON location_dim
     FOR EACH ROW
     BEGIN
         SET NEW.surrogate_location_id = MD5(CONCAT(
-            NEW.location_id, NEW.street_address, NEW.postal_code, NEW.city, NEW.state_province, NEW.country_id, NEW.country_name, NEW.region_id, NEW.region_name
+            NEW.location_id, NEW.street_address, NEW.postal_code, NEW.city, NEW.state_province, NEW.country_id, 
+            NEW.country_name, NEW.region_id, NEW.region_name, NEW.effective_start_date
         ));
     END $$
 
@@ -75,7 +77,8 @@ CREATE TRIGGER before_insert_fact BEFORE INSERT ON employee_yearly_salary_fact
     FOR EACH ROW
     BEGIN
         SET NEW.surrogate_fact_id = MD5(CONCAT(
-            NEW.surrogate_employee_id, NEW.surrogate_department_id, NEW.surrogate_job_id, NEW.surrogate_time_id, NEW.surrogate_location_id, NEW.salary
+            NEW.surrogate_employee_id, NEW.surrogate_department_id, NEW.surrogate_job_id, 
+            NEW.surrogate_time_id, NEW.surrogate_location_id, NEW.salary, NEW.effective_date
         ));
         SET NEW.salary = 12 * NEW.salary;
         SET @commission_pct = (SELECT commission_pct FROM employee_dim WHERE surrogate_employee_id = NEW.surrogate_employee_id AND is_current = 1);

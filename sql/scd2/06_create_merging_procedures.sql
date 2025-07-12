@@ -5,8 +5,6 @@
 -- Since MERGE() does not exist in MySQL, I wrote the functionality myself
 -- The procedures for all dimensions are analogical (there is a lot of code duplication but there is really no way around it)
 -- Again, there is no procedure for the time dimension since we probably don't want to change the time
--- BUG: This breaks if an already expired row is attempted to be remerged 
--- (i.e. if you try to merge a perfect copy of an already existing row that is currently expired)
 
 DELIMITER $$
 
@@ -15,14 +13,6 @@ DELIMITER $$
 -- --------- --
 CREATE PROCEDURE merge_employees()
 BEGIN
-
-    -- Delete rows that are already the active ones in the employee_dim table as it's pointless to merge them. 
-    -- Sucks to calculate their surrogate indicies again
-    DELETE FROM staging_employees WHERE MD5(CONCAT(
-        employee_id, full_name, hire_date, job_id, salary, 
-        COALESCE(commission_pct, ''), email, phone_number, COALESCE(manager_id, ''), COALESCE(department_id, '')
-    )) IN (SELECT surrogate_employee_id FROM employee_dim WHERE is_current = TRUE);
-
     -- Store the surrogate id's that are currently expiring 
     -- They will be used to update the fact table later
     CREATE TABLE old_surrogate_id (surrogate_employee_id CHAR(32))
@@ -53,10 +43,6 @@ END $$
 -- ----------- --
 CREATE PROCEDURE merge_departments()
 BEGIN
-
-    DELETE FROM staging_departments WHERE MD5(CONCAT(department_id, department_name, location_id, COALESCE(manager_id, ''))) 
-    IN (SELECT surrogate_department_id FROM department_dim WHERE is_current = TRUE);
-
     CREATE TABLE old_surrogate_id (surrogate_department_id CHAR(32))
     SELECT surrogate_department_id FROM department_dim WHERE department_id IN (SELECT department_id from staging_departments) AND is_current = TRUE;
 
@@ -81,10 +67,6 @@ END $$
 -- ---- --
 CREATE PROCEDURE merge_jobs()
 BEGIN
-
-    DELETE FROM staging_jobs WHERE MD5(CONCAT(job_id, job_title, min_salary, max_salary)) 
-    IN (SELECT surrogate_job_id FROM job_dim WHERE is_current = TRUE);
-
     CREATE TABLE old_surrogate_id (surrogate_job_id CHAR(32))
     SELECT surrogate_job_id FROM job_dim WHERE job_id IN (SELECT job_id from staging_jobs) AND is_current = TRUE;
 
@@ -110,10 +92,6 @@ END $$
 -- --------- --
 CREATE PROCEDURE merge_locations()
 BEGIN
-
-    DELETE FROM staging_locations WHERE MD5(CONCAT(location_id, street_address, postal_code, city, state_province, country_id, country_name, region_id, region_name)) 
-    IN (SELECT surrogate_location_id FROM location_dim WHERE is_current = TRUE);
-
     CREATE TABLE old_surrogate_id (surrogate_location_id CHAR(32))
     SELECT surrogate_location_id FROM location_dim WHERE location_id IN (SELECT location_id from staging_locations) AND is_current = TRUE;
 

@@ -65,7 +65,6 @@ LOAD DATA LOCAL INFILE 'data/jobs.csv' INTO TABLE job_dim
 -- --------- --
 -- EMPLOYEES --
 -- --------- --
-
 SET FOREIGN_KEY_CHECKS = 0;
 
 LOAD DATA LOCAL INFILE 'data/employees.csv' INTO TABLE employee_dim
@@ -111,7 +110,33 @@ LOAD DATA LOCAL INFILE 'data/departments.csv' INTO TABLE department_dim
 -- ----- --
 -- TIMES --
 -- ----- --
-source ./sql/time_dim.sql
+INSERT INTO time_dim
+-- Hacky way to get all dates between two dates
+-- https://stackoverflow.com/questions/9295616/how-to-get-list-of-dates-between-two-dates-in-mysql-select-query
+WITH dates AS (
+    select * from 
+    (select adddate('1995-01-01',t4.i*10000 + t3.i*1000 + t2.i*100 + t1.i*10 + t0.i) dates from
+    (select 0 i union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t0,
+    (select 0 i union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t1,
+    (select 0 i union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t2,
+    (select 0 i union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t3,
+    (select 0 i union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t4) v
+    where dates between '1995-01-01' and '2024-12-31'
+)
+-- end
+SELECT
+    CRC32(DATE_FORMAT(dates, '%Y%m%d')),
+    DATE_FORMAT(dates, '%Y%m%d'),
+    dates,
+    YEAR(dates),
+    QUARTER(dates),
+    MONTH(dates),
+    WEEK(dates, 3),
+    DAY(dates),
+    DAYNAME(dates),
+    YEAR(dates),
+    QUARTER(dates)
+FROM dates;
 
 -- ---------------------------- --
 -- EMPLOYEES YEARLY SALARY FACT --

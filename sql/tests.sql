@@ -17,7 +17,7 @@ CREATE PROCEDURE insert_into_test(
 )
 BEGIN
     UPDATE test 
-    SET is_current = FALSE 
+    SET is_current = FALSE      
     WHERE test_id = p_test_id;
 
     INSERT INTO test (surrogate_employee_id, test_id, f1, f2)

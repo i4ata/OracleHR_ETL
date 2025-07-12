@@ -1,0 +1,6 @@
+pandas
+PyMySQL
+sqlalchemy
+fastapi
+uvicorn
+python-dotenv

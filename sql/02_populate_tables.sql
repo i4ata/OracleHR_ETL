@@ -1,6 +1,68 @@
 SET GLOBAL local_infile=ON;
 
 -- --------- --
+-- EMPLOYEES --
+-- --------- --
+LOAD DATA LOCAL INFILE 'data/employees.csv' INTO TABLE employee_dim
+    FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
+    (employee_id, @first_name, @last_name, @email, @phone_number, @hire_date, job_id, salary, @commission_pct, @manager_id, @department_id)
+    SET
+        hire_date = DATE(REGEXP_REPLACE(@hire_date, 'T.*', '')),
+        full_name = CONCAT(@first_name, ' ', @last_name),
+        email = CONCAT(@email, '@egt.com'),
+        phone_number = CONCAT('+359', REGEXP_REPLACE(REGEXP_REPLACE(@phone_number, '^.*?\\.', ''), '\\.', '')),
+        manager_id = NULLIF(@manager_id, ''),
+        commission_pct = IF(@commission_pct = '', DEFAULT(commission_pct), @commission_pct),
+        department_id = NULLIF(@department_id, '');
+
+-- ----------- --
+-- DEPARTMENTS --
+-- ----------- --
+LOAD DATA LOCAL INFILE 'data/departments.csv' INTO TABLE department_dim
+    FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
+    (department_id, department_name, @manager_id, location_id)
+    SET 
+        manager_id = NULLIF(@manager_id, '');
+
+-- ---- --
+-- JOBS --
+-- ---- --
+LOAD DATA LOCAL INFILE 'data/jobs.csv' INTO TABLE job_dim
+    FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
+    (job_id, job_title, min_salary, max_salary);
+
+-- ----- --
+-- TIMES --
+-- ----- --
+INSERT INTO time_dim
+-- Hacky way to get all dates between two dates (>200x speedup compared to the given method)
+-- https://stackoverflow.com/questions/9295616/how-to-get-list-of-dates-between-two-dates-in-mysql-select-query
+WITH dates AS (
+    select * from 
+    (select adddate('1995-01-01',t4.i*10000 + t3.i*1000 + t2.i*100 + t1.i*10 + t0.i) dates from
+    (select 0 i union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t0,
+    (select 0 i union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t1,
+    (select 0 i union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t2,
+    (select 0 i union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t3,
+    (select 0 i union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t4) v
+    where dates between '1995-01-01' and '2024-12-31'
+)
+-- end
+SELECT
+    CRC32(DATE_FORMAT(dates, '%Y%m%d')),
+    DATE_FORMAT(dates, '%Y%m%d'),
+    dates,
+    YEAR(dates),
+    QUARTER(dates),
+    MONTH(dates),
+    WEEK(dates, 3),
+    DAY(dates),
+    DAYNAME(dates),
+    YEAR(dates),
+    QUARTER(dates)
+FROM dates;
+
+-- --------- --
 -- LOCATIONS --
 -- --------- --
 CREATE TABLE regions_temp (
@@ -36,134 +98,34 @@ LOAD DATA LOCAL INFILE 'data/locations.csv'
     FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
     (location_id, street_address, postal_code, city, state_province, country_id);
 
-INSERT INTO location_dim SELECT
-    MD5(CONCAT(location_id, street_address, postal_code, city, state_province, country_id, country_name, region_id, region_name)) AS surrogate_location_id, 
-    location_id, street_address, postal_code, city, state_province, country_id, country_name, region_id, region_name 
+INSERT INTO location_dim (location_id, street_address, postal_code, city, state_province, country_id, country_name, region_id, region_name) 
+    SELECT location_id, street_address, postal_code, city, state_province, country_id, country_name, region_id, region_name 
     FROM locations_temp JOIN countries_temp USING (country_id) JOIN regions_temp USING (region_id);
 
 DROP TABLE regions_temp;
 DROP TABLE countries_temp;
 DROP TABLE locations_temp;
 
--- ---- --
--- JOBS --
--- ---- --
-LOAD DATA LOCAL INFILE 'data/jobs.csv' INTO TABLE job_dim
-    FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
-    (job_id, job_title, min_salary, max_salary)
-    SET 
-        job_category = CASE
-            WHEN job_title LIKE '%President%'  OR job_title LIKE '%Manager%'                                         THEN 'Management'
-            WHEN job_title LIKE '%Programmer%' OR job_title LIKE '%Accountant%' OR job_title LIKE '%Representative%' THEN 'Technical/Professional'
-            WHEN job_title LIKE '%Assistant%'  OR job_title LIKE '%Clerk%'                                           THEN 'Clerical/Support'
-                                                                                                                     ELSE 'Other'
-        END,
-        surrogate_job_id = MD5(CONCAT(
-            job_id, job_title, min_salary, max_salary, job_category, job_category
-        ));
-
--- --------- --
--- EMPLOYEES --
--- --------- --
-SET FOREIGN_KEY_CHECKS = 0;
-
-LOAD DATA LOCAL INFILE 'data/employees.csv' INTO TABLE employee_dim
-    FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
-    (employee_id, @first_name, @last_name, @email, @phone_number, @hire_date, job_id, salary, @commission_pct, @manager_id, @department_id)
-    SET
-        hire_date = DATE(REGEXP_REPLACE(@hire_date, 'T.*', '')),
-        full_name = CONCAT(@first_name, ' ', @last_name),
-        email = CONCAT(@email, '@egt.com'),
-        phone_number = CONCAT('+359', REGEXP_REPLACE(REGEXP_REPLACE(@phone_number, '^.*?\\.', ''), '\\.', '')),
-        surrogate_employee_id = MD5(CONCAT(
-            employee_id, full_name, hire_date, job_id, salary, @commission_pct, email, phone_number, @manager_id, @department_id
-        )),
-        manager_id = NULLIF(@manager_id, ''),
-        commission_pct = IF(@commission_pct = '', DEFAULT(commission_pct), @commission_pct),
-        department_id = NULLIF(@department_id, '');
-
--- can't do that in SET from above
-WITH tenure AS (SELECT employee_id, TIMESTAMPDIFF(YEAR, hire_date, CURDATE()) as years from employee_dim)
-    UPDATE employee_dim JOIN tenure USING (employee_id) SET tenure_band = CASE 
-        WHEN years < 1              THEN 'Less than 1 year'
-        WHEN years BETWEEN 1 and 3  THEN '1-3 years'
-        WHEN years BETWEEN 4 and 6  THEN '4-6 years'
-        WHEN years BETWEEN 7 and 10 THEN '7-10 years'
-        WHEN years > 10             THEN '10+ years'
-        ELSE NULL
-    END;
-
-SET FOREIGN_KEY_CHECKS = 1;
-
--- ----------- --
--- DEPARTMENTS --
--- ----------- --
-LOAD DATA LOCAL INFILE 'data/departments.csv' INTO TABLE department_dim
-    FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
-    (department_id, department_name, @manager_id, location_id)
-    SET 
-        manager_id = NULLIF(@manager_id, ''),
-        surrogate_department_id = MD5(CONCAT(
-            department_id, department_name, location_id, @manager_id
-        ));
-
--- ----- --
--- TIMES --
--- ----- --
-INSERT INTO time_dim
--- Hacky way to get all dates between two dates
--- https://stackoverflow.com/questions/9295616/how-to-get-list-of-dates-between-two-dates-in-mysql-select-query
-WITH dates AS (
-    select * from 
-    (select adddate('1995-01-01',t4.i*10000 + t3.i*1000 + t2.i*100 + t1.i*10 + t0.i) dates from
-    (select 0 i union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t0,
-    (select 0 i union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t1,
-    (select 0 i union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t2,
-    (select 0 i union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t3,
-    (select 0 i union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t4) v
-    where dates between '1995-01-01' and '2024-12-31'
-)
--- end
-SELECT
-    CRC32(DATE_FORMAT(dates, '%Y%m%d')),
-    DATE_FORMAT(dates, '%Y%m%d'),
-    dates,
-    YEAR(dates),
-    QUARTER(dates),
-    MONTH(dates),
-    WEEK(dates, 3),
-    DAY(dates),
-    DAYNAME(dates),
-    YEAR(dates),
-    QUARTER(dates)
-FROM dates;
-
 -- ---------------------------- --
 -- EMPLOYEES YEARLY SALARY FACT --
 -- ---------------------------- --
-INSERT INTO employee_yearly_salary_fact
+INSERT INTO employee_yearly_salary_fact (surrogate_employee_id, surrogate_department_id, surrogate_job_id, surrogate_time_id, surrogate_location_id, salary)
 WITH
     all_employees AS (
-        SELECT
-            YEAR(hire_date) as hiring_year, 
-            surrogate_employee_id, surrogate_department_id, surrogate_job_id, surrogate_location_id,
-            (salary * 12) as salary, 
-            (salary * 12 * commission_pct) as bonus, 
-            (salary * 12 * commission_pct + salary * 12) as total_compensation,
-            CURDATE() as effective_date
+        SELECT YEAR(hire_date) as hiring_year, salary, surrogate_employee_id, surrogate_department_id, surrogate_job_id, surrogate_location_id
         FROM
             employee_dim 
             JOIN department_dim USING (department_id) 
             JOIN job_dim USING (job_id) 
             JOIN location_dim USING (location_id)
     ),
-    all_years AS (
-        SELECT surrogate_time_id, year from time_dim WHERE day = 31 AND month = 12
-    ),
+    all_years AS (SELECT surrogate_time_id, year from time_dim WHERE day = 31 AND month = 12),
     salary_data as (
         SELECT
-            MD5(CONCAT(surrogate_employee_id, surrogate_department_id, surrogate_job_id, surrogate_time_id, surrogate_location_id, salary, bonus, total_compensation, effective_date)) as surrogate_fact_id,
-            surrogate_employee_id, surrogate_department_id, surrogate_job_id, surrogate_time_id, surrogate_location_id, salary, bonus, total_compensation, effective_date
-        FROM all_employees JOIN all_years ON all_employees.hiring_year <= all_years.year ORDER BY surrogate_employee_id, year
+            surrogate_employee_id, surrogate_department_id, surrogate_job_id, surrogate_time_id, surrogate_location_id, salary
+        FROM 
+            all_employees 
+            JOIN all_years ON all_employees.hiring_year <= all_years.year 
+            ORDER BY surrogate_employee_id, year
     )
 SELECT * FROM salary_data;

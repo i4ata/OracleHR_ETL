@@ -2,10 +2,7 @@ CREATE TABLE test (
     surrogate_employee_id CHAR(32) PRIMARY KEY,
     test_id DECIMAL(6,0) NOT NULL,
     f1 VARCHAR(41),
-    f2 DECIMAL,
-    effective_start_date TIMESTAMP,
-    effective_end_date TIMESTAMP,
-    is_current BOOLEAN
+    f2 DECIMAL
 );
 
 DELIMITER $$
@@ -26,13 +23,13 @@ END $$
 
 DELIMITER ;
 
-CREATE table staging (
+CREATE table staging_test (
     test_id DECIMAL,
     f1 VARCHAR(41),
     f2 DECIMAL
 );
 
-INSERT INTO staging
+INSERT INTO staging_test
 VALUES (123,'laino',3), (124,'govno',2);
 
 call insert_into_test(SELECT * from staging);

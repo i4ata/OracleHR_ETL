@@ -6,7 +6,7 @@ import os
 
 app = FastAPI()
 engine = create_engine('mysql+pymysql://root:4e7LyYzF@localhost/OLAP')
-with open(os.path.join('sql', '03_queries.sql')) as f: queries = f.read().split('\n\n')
+with open(os.path.join('sql', '04_queries.sql')) as f: queries = f.read().split('\n\n')[1:] # Skipping the first line of \! echo
 
 to_eur = {
     'Americas': 0.86,
@@ -24,9 +24,33 @@ currencies = {
     'Afrika': 'ZAR'
 }
 
+def department_info_query(department_id: int, year: Optional[int]) -> str:
+    return f"""
+    SELECT year, department_dim.department_id as department_id, department_name, full_name, job_title, employee_yearly_salary_fact.salary as yearly_salary, city, country_name, region_name 
+    FROM employee_yearly_salary_fact 
+    JOIN time_dim USING (surrogate_time_id)
+    JOIN department_dim USING (surrogate_department_id)
+    JOIN employee_dim USING (surrogate_employee_id)
+    JOIN job_dim USING (surrogate_job_id)
+    JOIN location_dim USING (surrogate_location_id)
+    WHERE year = {year if year is not None else '(SELECT MAX(year) from time_dim)'} AND department_dim.department_id = {department_id};
+    """
+
+def year_info_query(year: int) -> str:
+    return f"""
+    SELECT year, full_name, job_title, employee_yearly_salary_fact.salary AS yearly_salary, department_name, city, country_name, region_name 
+    FROM employee_yearly_salary_fact 
+    JOIN time_dim USING (surrogate_time_id) 
+    JOIN department_dim USING (surrogate_department_id)
+    JOIN employee_dim USING (surrogate_employee_id)
+    JOIN job_dim USING (surrogate_job_id)
+    JOIN location_dim USING (surrogate_location_id)
+    WHERE year = {year};
+    """
+
 def employee_info_query(employee_id: int, year: Optional[int]) -> str:
     return f"""
-    SELECT year, employee_id, full_name, job_title, job_category, country_name, region_name, department_name, employee_yearly_salary_fact.salary as yearly_salary, bonus, total_compensation
+    SELECT year, employee_id, full_name, job_title, job_category, country_name, region_name, department_name, employee_yearly_salary_fact.salary AS yearly_salary, bonus, total_compensation
     FROM employee_yearly_salary_fact
     JOIN (SELECT surrogate_employee_id, employee_id, full_name FROM employee_dim where employee_id = {employee_id}) AS employee USING (surrogate_employee_id)
     JOIN (SELECT surrogate_time_id, year FROM time_dim WHERE year = {year if year is not None else '(SELECT MAX(year) FROM time_dim) AS time'}) AS time USING (surrogate_time_id)
@@ -44,6 +68,18 @@ def convert(df: pd.DataFrame, currency_columns: List[str], EUR: bool) -> pd.Data
     else:
         df['currency'] = df['region_name'].map(currencies)
     return df
+
+@app.get('/departments/{department_id}')
+def department_info(department_id: int, year: Optional[int] = None, EUR: bool = True):
+    query: pd.DataFrame = pd.read_sql_query(department_info_query(department_id, year), con=engine)
+    query = convert(query, ['yearly_salary'], EUR)
+    return query.to_dict('records')
+
+@app.get('/years/{year}')
+def year_info(year: int, EUR: bool = False):
+    query: pd.DataFrame = pd.read_sql_query(year_info_query(year), con=engine)
+    query = convert(query, ['yearly_salary'], EUR)
+    return query.to_dict('records')
 
 @app.get('/employees/{employee_id}')
 def employee_info(employee_id: int, year: Optional[int] = None, EUR: bool = False):

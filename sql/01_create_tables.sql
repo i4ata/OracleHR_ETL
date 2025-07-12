@@ -186,4 +186,20 @@ CREATE TRIGGER before_insert_fact BEFORE INSERT ON employee_yearly_salary_fact
         SET NEW.total_compensation = NEW.salary + NEW.bonus;
     END $$
 
+CREATE TRIGGER update_compensation BEFORE UPDATE ON employee_yearly_salary_fact
+    FOR EACH ROW
+    BEGIN
+        IF NEW.surrogate_employee_id <> OLD.surrogate_employee_id THEN
+        
+            SELECT salary, commission_pct INTO @new_salary, @new_commission_pct FROM employee_dim 
+            WHERE surrogate_employee_id = NEW.surrogate_employee_id AND is_current = 1;
+            
+            -- Sucks a bit that the lines are mostly repeated from the trigger above
+            SET NEW.salary = 12 * @new_salary;
+            SET @commission_pct = @new_commission_pct;
+            SET NEW.bonus = NEW.salary * @commission_pct;
+            SET NEW.total_compensation = NEW.salary + NEW.bonus;
+        END IF;
+    END $$
+
 DELIMITER ;

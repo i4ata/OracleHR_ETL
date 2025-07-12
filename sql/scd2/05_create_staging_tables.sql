@@ -1,4 +1,6 @@
+\! echo '---------------------------------------------------------------------------------------------------'
 \! echo 'Running create_staging_tables.sql. Created example staging tables to be merged with artificial data'
+\! echo '---------------------------------------------------------------------------------------------------'
 
 -- This script creates a staging table for each dimension and gives it some random data (rows to be merged)
 -- The staging tables match the structure of the original tables (at least the columns that are not filled automatically)
@@ -37,7 +39,7 @@ CREATE TABLE staging_departments (
     manager_id DECIMAL(6,0)
 )
 SELECT department_id, department_name, location_id, manager_id 
-FROM department_dim WHERE department_id in (130, 140);
+FROM department_dim WHERE department_id in (90, 60);
 UPDATE staging_departments SET department_name = 'EGT';
 
 \! echo 'Staging departments table'
@@ -74,8 +76,8 @@ CREATE TABLE staging_locations (
     region_name VARCHAR(25)
 )
 SELECT location_id, street_address, postal_code, city, state_province, country_id, country_name, region_id, region_name 
-FROM location_dim WHERE location_id = 2200;
-UPDATE staging_locations SET city = 'Sofia', country_id = 'BG';
+FROM location_dim WHERE location_id = 2400;
+UPDATE staging_locations SET city = 'Sofia', country_id = 'BG', country_name = 'Bulgaria';
 
 \! echo 'Staging locations table'
 SELECT * from staging_locations;

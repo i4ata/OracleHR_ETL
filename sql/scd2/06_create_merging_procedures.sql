@@ -1,4 +1,6 @@
+\! echo '------------------------------------------------------------------------------------------------------------------------------------'
 \! echo 'Running create_merging_procedures.sql. Create the necessary functionality for merging the staging tables while supporting SCD Type 2'
+\! echo '------------------------------------------------------------------------------------------------------------------------------------'
 
 -- Since MERGE() does not exist in MySQL, I wrote the functionality myself
 -- The procedures for all dimensions are analogical (there is a lot of code duplication but there is really no way around it)
@@ -36,12 +38,13 @@ BEGIN
 
     -- Update the fact table by replacing the expired surrogate id's with the new ones. This triggers a trigger
     UPDATE employee_yearly_salary_fact AS fact
-    JOIN old_surrogate_id USING (surrogate_employee_id)
-    JOIN employee_dim AS dim ON dim.employee_id IN (SELECT employee_id FROM staging_employees) AND is_current = TRUE
+    JOIN old_surrogate_id AS old_id USING (surrogate_employee_id)
+    JOIN employee_dim AS dim ON dim.employee_id = (SELECT employee_id FROM employee_dim WHERE surrogate_employee_id = old_id.surrogate_employee_id) AND is_current = TRUE
     SET fact.surrogate_employee_id = dim.surrogate_employee_id;
 
-    -- Delete the stored old id's
+    -- Delete the stored old id's and empty the staging table
     DROP TABLE old_surrogate_id;
+    DELETE FROM staging_employees;
 
 END $$
 
@@ -64,11 +67,12 @@ BEGIN
     SELECT * FROM staging_departments;
 
     UPDATE employee_yearly_salary_fact AS fact
-    JOIN old_surrogate_id USING (surrogate_department_id)
-    JOIN department_dim AS dim ON dim.department_id IN (SELECT department_id FROM staging_departments) AND is_current = TRUE
+    JOIN old_surrogate_id AS old_id USING (surrogate_department_id)
+    JOIN department_dim AS dim ON dim.department_id = (SELECT department_id FROM department_dim WHERE surrogate_department_id = old_id.surrogate_department_id) AND is_current = TRUE
     SET fact.surrogate_department_id = dim.surrogate_department_id;
 
     DROP TABLE old_surrogate_id;
+    DELETE FROM staging_departments;
 
 END $$
 
@@ -91,11 +95,12 @@ BEGIN
     SELECT * FROM staging_jobs;
 
     UPDATE employee_yearly_salary_fact AS fact
-    JOIN old_surrogate_id USING (surrogate_job_id)
-    JOIN job_dim AS dim ON dim.job_id IN (SELECT job_id FROM staging_jobs) AND is_current = TRUE
+    JOIN old_surrogate_id AS old_id USING (surrogate_job_id)
+    JOIN job_dim AS dim ON dim.job_id = (SELECT job_id FROM job_dim WHERE surrogate_job_id = old_id.surrogate_job_id) AND is_current = TRUE
     SET fact.surrogate_job_id = dim.surrogate_job_id;
 
     DROP TABLE old_surrogate_id;
+    DELETE FROM staging_jobs;
 
 END $$
 
@@ -119,11 +124,12 @@ BEGIN
     SELECT * FROM staging_locations;
 
     UPDATE employee_yearly_salary_fact AS fact
-    JOIN old_surrogate_id USING (surrogate_location_id)
-    JOIN location_dim AS dim ON dim.location_id IN (SELECT location_id FROM staging_locations) AND is_current = TRUE
+    JOIN old_surrogate_id AS old_id USING (surrogate_location_id)
+    JOIN location_dim AS dim ON dim.location_id = (SELECT location_id FROM location_dim WHERE surrogate_location_id = old_id.surrogate_location_id) AND is_current = TRUE
     SET fact.surrogate_location_id = dim.surrogate_location_id;
 
     DROP TABLE old_surrogate_id;
+    DELETE FROM staging_locations;
 
 END $$
 

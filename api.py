@@ -53,7 +53,7 @@ def employee_info_query(employee_id: int, year: Optional[int]) -> str:
     SELECT year, employee_id, full_name, job_title, job_category, country_name, region_name, department_name, employee_yearly_salary_fact.salary AS yearly_salary, bonus, total_compensation
     FROM employee_yearly_salary_fact
     JOIN (SELECT surrogate_employee_id, employee_id, full_name FROM employee_dim where employee_id = {employee_id}) AS employee USING (surrogate_employee_id)
-    JOIN (SELECT surrogate_time_id, year FROM time_dim WHERE year = {year if year is not None else '(SELECT MAX(year) FROM time_dim) AS time'}) AS time USING (surrogate_time_id)
+    JOIN (SELECT surrogate_time_id, year FROM time_dim WHERE year = {year if year is not None else '(SELECT MAX(year) FROM time_dim)'}) AS time USING (surrogate_time_id)
     JOIN job_dim USING (surrogate_job_id)
     JOIN department_dim USING (surrogate_department_id)
     JOIN location_dim USING (surrogate_location_id)
